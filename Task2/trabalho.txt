@@ -1,0 +1,20 @@
+n elementos
+p blocos
+
+bloco id (0<=id<=p-1)
+
+limite inferior do bloco 'id'     id*n/p
+
+#define BLOCK_LOW(id, p, n)		((id)*(n)/(p))
+
+limite superior do bloco 'id' = limite inferior do seguinte - 1
+
+#define BLOCK_HIGH(id, p, n)	(BLOCK_LOW((id)+1, p, n)-1)
+
+tamanho do bloco 'id'
+
+#define BLOCK_SIZE(id, p, n)	(BLOCK_LOW((id)+1, p, n)-BLOCK_LOW(id, p, n))
+
+bloco que contem elemento 'index'
+
+#define BLOCK_OWNER(index, p, n)	(((p)*((index)+1)-1)/(n))
