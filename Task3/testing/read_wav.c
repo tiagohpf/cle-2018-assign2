@@ -10,25 +10,42 @@
 #define TRUE 1
 #define FALSE 0
 
+typedef struct {
+        char c;
+        float p;
+        float pup,pdown,pleft,pright,pforward,pback;
+}MESH;
+
 // WAVE header structure
 
 unsigned char buffer4[4];
 unsigned char buffer2[2];
 
-char*** readFile(char *name,int *W,int *D,int *H,long *freq){
+MESH*** readFile(char *name,int *W,int *D,int *H,long *freq){
         //Debugging
         //printf("File name %s\n",name);
         FILE *f = fopen(name,"r");
         fscanf(f,"%d %d %d %ld",&*W,&*D,&*H,&*freq);
         //Debugging
         //printf("%d %d %d %ld\n",*W,*D,*H,*freq);
-        char ***nodes = (char***)malloc(*W*sizeof(char**));
+        MESH ***nodes = (MESH***)malloc(*W*sizeof(MESH**));
         for(int i = 0; i<*W; i++) {
-                nodes[i] = (char**)malloc(*D*sizeof(char*));
+                nodes[i] = (MESH**)malloc(*D*sizeof(MESH*));
                 for(int j = 0; j<*D; j++) {
-                        nodes[i][j] = (char*)malloc(*H*sizeof(char));
+                        nodes[i][j] = (MESH*)malloc(*H*sizeof(MESH));
                         for(int k = 0; k<*H; k++) {
-                                fscanf(f,"%c",&nodes[i][j][k]);
+                                if(i == 0 && j == 0 && k == 0) {
+                                        char x;
+                                        fscanf(f,"%c",&x);
+                                }
+                                fscanf(f,"%c",&nodes[i][j][k].c);
+                                nodes[i][j][k].p = 0;
+                                nodes[i][j][k].pup = 0;
+                                nodes[i][j][k].pdown = 0;
+                                nodes[i][j][k].pleft = 0;
+                                nodes[i][j][k].pright = 0;
+                                nodes[i][j][k].pforward = 0;
+                                nodes[i][j][k].pback = 0;
                         }
                 }
         }
@@ -53,18 +70,7 @@ int main(int argc, char **argv) {
 
         //Read Room
         printf("Reading room file\n");
-        char ***nodes = readFile(argv[1],&W,&D,&H,&freq);
-        float ***buffer = (float***)malloc(W*sizeof(float**));
-        for(int i = 0; i<W; i++) {
-                buffer[i] = (float**)malloc(D*sizeof(float*));
-                for(int j = 0; j<D; j++) {
-                        buffer[i][j] = (float*)malloc(H*sizeof(float));
-                        for(int k = 0; k<H; k++) {
-                                buffer[i][j][k] = 0;
-                        }
-                }
-        }
-
+        MESH ***nodes = readFile(argv[1],&W,&D,&H,&freq);
         FILE *f = fopen("output.wav","w");
         filename = (char*) malloc(sizeof(char) * 1024);
         if (filename == NULL) {
@@ -231,8 +237,7 @@ int main(int argc, char **argv) {
                         for (int x = 0; x<W; x++) {
                                 for (int y = 0; y < D; y++) {
                                         for (int z = 0; z < H; z++) {
-
-                                                if(nodes[x][y][z] == 'S') {
+                                                if(nodes[x][y][z].c == 'S') {
                                                         printf("Found source!\n" );
 
                                                         for (i =1; i <= num_samples; i++) {
@@ -250,163 +255,146 @@ int main(int argc, char **argv) {
                                                                                         data_in_channel = data_buffer[0];
                                                                                 }
                                                                                 else{
+                                                                                        printf("Erro\n" );
                                                                                         return -1;
                                                                                 }
-                                                                                //fprintf(f, "%s", data_buffer);
+                                                                                if(x - 1 >=0)
+                                                                                        nodes[x][y][z].pup =nodes[x-1][y][z].pdown;
 
+                                                                                if(x+1<W)
+                                                                                        nodes[x][y][z].pdown =nodes[x+1][y][z].pup;
 
-                                                                                //Inject sound
-                                                                                float pup = 0,pdown = 0,pleft=0,pright=0,pforward=0,pback=0;
-                                                                                if(x - 1 >= 0 && x + 1 < W) {
-                                                                                        pup = buffer[x-1][y][z];
-                                                                                        pdown = buffer[x+1][y][z];
+                                                                                if(y - 1 >=0)
+                                                                                        nodes[x][y][z].pleft =nodes[x][y-1][z].pright;
 
-                                                                                }
-                                                                                if(y - 1 >= 0 && y + 1 < D) {
-                                                                                        pleft = buffer[x][y-1][z];
-                                                                                        pright = buffer[x][y+1][z];
+                                                                                if(y+1<D)
+                                                                                        nodes[x][y][z].pright =nodes[x][y+1][z].pleft;
 
-                                                                                }
-                                                                                if(z - 1 >= 0 && z + 1 < H) {
-                                                                                        pforward = buffer[x][y][z-1];
-                                                                                        pback = buffer[x][y][z+1];
-                                                                                }
+                                                                                if(z - 1 >=0)
+                                                                                        nodes[x][y][z].pback =nodes[x][y][z-1].pforward;
 
-                                                                                //float p = (pup + pdown + pleft + pright + pback + pforward) / 3;
-                                                                                float p = data_in_channel;
-                                                                                buffer[x][y][z]+=data_in_channel;
+                                                                                if(z+1<H)
+                                                                                        nodes[x][y][z].pforward =nodes[x][y][z+1].pback;
 
+                                                                                nodes[x][y][z].p = (nodes[x][y][z].pup + nodes[x][y][z].pdown + nodes[x][y][z].pforward + nodes[x][y][z].pback + nodes[x][y][z].pleft + nodes[x][y][z].pright) / 3;
+                                                                                nodes[x][y][z].p=data_in_channel;
 
-                                                                                if(x - 1 >= 0 && x + 1 < W) {
-                                                                                        buffer[x-1][y][z] = p - pup;
-                                                                                        buffer[x+1][y][z] = p-pdown;
+                                                                                if(x - 1 >=0)
+                                                                                        nodes[x][y][z].pup =nodes[x][y][z].p - nodes[x-1][y][z].pdown;
 
-                                                                                }
-                                                                                if(y - 1 >= 0 && y + 1 < D) {
-                                                                                        buffer[x][y-1][z] = p-pleft;
-                                                                                        buffer[x][y+1][z] = p-pright;
+                                                                                if(x+1<W)
+                                                                                        nodes[x][y][z].pdown =nodes[x][y][z].p - nodes[x+1][y][z].pup;
 
-                                                                                }
-                                                                                if(z - 1 >= 0 && z + 1 < H) {
-                                                                                        buffer[x][y][z-1] = p-pforward;
-                                                                                        buffer[x][y][z+1] = p-pback;
-                                                                                }
+                                                                                if(y - 1 >=0)
+                                                                                        nodes[x][y][z].pleft =nodes[x][y][z].p - nodes[x][y-1][z].pright;
 
-                                                                                //back
-                                                                                int a = x;
-                                                                                int b = y;
-                                                                                int c = z;
-                                                                                for(int bx = a; bx>=0; bx-- ) {
-                                                                                        for(int by = b; by >= 0; by--) {
-                                                                                                for(int bz = c; bz>=0; bz--) {
-                                                                                                        if(nodes[bx][by][bz] == ' ') {
-                                                                                                                float pup = 0,pdown = 0,pleft=0,pright=0,pforward=0,pback=0;
-                                                                                                                if(bx - 1 >= 0 && bx + 1 < W) {
-                                                                                                                        pup = buffer[bx-1][by][bz];
-                                                                                                                        pdown = buffer[bx+1][by][bz];
+                                                                                if(y+1<D)
+                                                                                        nodes[x][y][z].pright =nodes[x][y][z].p - nodes[x][y+1][z].pleft;
 
-                                                                                                                }
-                                                                                                                if(by - 1 >= 0 && by + 1 < D) {
-                                                                                                                        pleft = buffer[bx][by-1][bz];
-                                                                                                                        pright = buffer[bx][by+1][bz];
+                                                                                if(z - 1 >=0)
+                                                                                        nodes[x][y][z].pback =nodes[x][y][z].p - nodes[x][y][z-1].pforward;
 
-                                                                                                                }
-                                                                                                                if(bz - 1 >= 0 && bz + 1 < H) {
-                                                                                                                        pforward = buffer[bx][by][bz-1];
-                                                                                                                        pback = buffer[bx][by][bz+1];
-                                                                                                                }
-
-                                                                                                                float p = (pup + pdown + pleft + pright + pback + pforward) / 3;
+                                                                                if(z+1<H)
+                                                                                        nodes[x][y][z].pforward = nodes[x][y][z].p - nodes[x][y][z+1].pback;
 
 
 
 
-                                                                                                                if(bx - 1 >= 0 && bx + 1 < W) {
-                                                                                                                        buffer[bx-1][by][bz] = p - pup;
-                                                                                                                        buffer[bx+1][by][bz] = p-pdown;
+                                                                                for(int bx = 0; bx<W; bx++ ) {
+                                                                                        for(int by = 0; by < D; by++) {
+                                                                                                for(int bz = 0; bz< H; bz++) {
 
-                                                                                                                }
-                                                                                                                if(by - 1 >= 0 && by + 1 < D) {
-                                                                                                                        buffer[bx][by-1][bz] = p-pleft;
-                                                                                                                        buffer[bx][by+1][bz] = p-pright;
 
-                                                                                                                }
-                                                                                                                if(bz - 1 >= 0 && bz + 1 < H) {
-                                                                                                                        buffer[bx][by][bz-1] = p-pforward;
-                                                                                                                        buffer[bx][by][bz+1] = p-pback;
-                                                                                                                }
+                                                                                                        if(nodes[bx][by][bz].c == ' ') {
+                                                                                                                if(bx - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pup =nodes[bx-1][by][bz].pdown;
+
+                                                                                                                if(bx+1<W)
+                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx+1][by][bz].pup;
+
+                                                                                                                if(by - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by-1][bz].pright;
+
+                                                                                                                if(by+1<D)
+                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by+1][bz].pleft;
+
+                                                                                                                if(bz - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz-1].pforward;
+
+                                                                                                                if(bz+1<H)
+                                                                                                                        nodes[bx][by][bz].pforward =nodes[bx][by][bz+1].pback;
+
+                                                                                                                nodes[bx][by][bz].p = (nodes[bx][by][bz].pup + nodes[bx][by][bz].pdown + nodes[bx][by][bz].pforward + nodes[bx][by][bz].pback + nodes[bx][by][bz].pleft + nodes[bx][by][bz].pright) / 3;
+
+                                                                                                                if(bx - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pup =nodes[bx][by][bz].p - nodes[bx-1][by][bz].pdown;
+
+                                                                                                                if(bx+1<W)
+                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx][by][bz].p - nodes[bx+1][by][bz].pup;
+
+                                                                                                                if(by - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by][bz].p - nodes[bx][by-1][bz].pright;
+
+                                                                                                                if(by+1<D)
+                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by][bz].p - nodes[bx][by+1][bz].pleft;
+
+                                                                                                                if(bz - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz].p - nodes[bx][by][bz-1].pforward;
+
+                                                                                                                if(bz+1<H)
+                                                                                                                        nodes[bx][by][bz].pforward = nodes[bx][by][bz].p - nodes[bx][by][bz+1].pback;
+
                                                                                                         }
-                                                                                                        if(nodes[bx][by][bz] == 'R') {
-                                                                                                                //data_buffer[0] = data_in_channel;//buffer[bx][by][bz];
-                                                                                                                data_buffer[0] = buffer[bx][by][bz];
+                                                                                                        if(nodes[bx][by][bz].c == 'R') {
+                                                                                                                if(bx - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pup =nodes[bx-1][by][bz].pdown;
+
+                                                                                                                if(bx+1<W)
+                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx+1][by][bz].pup;
+
+                                                                                                                if(by - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by-1][bz].pright;
+
+                                                                                                                if(by+1<D)
+                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by+1][bz].pleft;
+
+                                                                                                                if(bz - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz-1].pforward;
+
+                                                                                                                if(bz+1<H)
+                                                                                                                        nodes[bx][by][bz].pforward =nodes[bx][by][bz+1].pback;
+
+                                                                                                                nodes[bx][by][bz].p = (nodes[bx][by][bz].pup + nodes[bx][by][bz].pdown + nodes[bx][by][bz].pforward + nodes[bx][by][bz].pback + nodes[bx][by][bz].pleft + nodes[bx][by][bz].pright) / 3;
+
+                                                                                                                if(bx - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pup =nodes[bx][by][bz].p - nodes[bx-1][by][bz].pdown;
+
+                                                                                                                if(bx+1<W)
+                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx][by][bz].p - nodes[bx+1][by][bz].pup;
+
+                                                                                                                if(by - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by][bz].p - nodes[bx][by-1][bz].pright;
+
+                                                                                                                if(by+1<D)
+                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by][bz].p - nodes[bx][by+1][bz].pleft;
+
+                                                                                                                if(bz - 1 >=0)
+                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz].p - nodes[bx][by][bz-1].pforward;
+
+                                                                                                                if(bz+1<H)
+                                                                                                                        nodes[bx][by][bz].pforward = nodes[bx][by][bz].p - nodes[bx][by][bz+1].pback;
+
+                                                                                                                data_buffer[0] = nodes[bx][by][bz].p;
+                                                                                                                //data_buffer[0] = data_in_channel;
                                                                                                                 fprintf(f, "%s", data_buffer);
+
                                                                                                         }
                                                                                                 }
-                                                                                                c = H-1;
                                                                                         }
-                                                                                        b = D-1;
                                                                                 }
 
-                                                                                //forward
-                                                                                a = x;
-                                                                                b = y;
-                                                                                c = z+1;
-                                                                                for(int fx = a; fx<W; fx++ ) {
-                                                                                        for(int fy = b; fy < D; fy++) {
-                                                                                                for(int fz = c; fz<H; fz++) {
-                                                                                                        if(nodes[fx][fy][fz] == ' ') {
-                                                                                                                float pup = 0,pdown = 0,pleft=0,pright=0,pforward=0,pback=0;
-                                                                                                                if(fx - 1 >= 0 && fx + 1 < W) {
-                                                                                                                        pup = buffer[fx-1][fy][fz];
-                                                                                                                        pdown = buffer[fx+1][fy][fz];
-
-                                                                                                                }
-                                                                                                                if(fy - 1 >= 0 && fy + 1 < D) {
-                                                                                                                        pleft = buffer[fx][fy-1][fz];
-                                                                                                                        pright = buffer[fx][fy+1][fz];
-
-                                                                                                                }
-                                                                                                                if(fz - 1 >= 0 && fz + 1 < H) {
-                                                                                                                        pforward = buffer[fx][fy][fz-1];
-                                                                                                                        pback = buffer[fx][fy][fz+1];
-                                                                                                                }
-
-                                                                                                                float p = (pup + pdown + pleft + pright + pback + pforward) / 3;
-
-
-
-
-                                                                                                                if(fx - 1 >= 0 && fx + 1 < W) {
-                                                                                                                        buffer[fx-1][fy][fz] = p - pup;
-                                                                                                                        buffer[fx+1][fy][fz] = p-pdown;
-
-                                                                                                                }
-                                                                                                                if(fy - 1 >= 0 && fy + 1 < D) {
-                                                                                                                        buffer[fx][fy-1][fz] = p-pleft;
-                                                                                                                        buffer[fx][fy+1][fz] = p-pright;
-
-                                                                                                                }
-                                                                                                                if(fz - 1 >= 0 && fz + 1 < H) {
-                                                                                                                        buffer[fx][fy][fz-1] = p-pforward;
-                                                                                                                        buffer[fx][fy][fz+1] = p-pback;
-                                                                                                                }
-                                                                                                        }
-                                                                                                        if(nodes[fx][fy][fz] == 'R') {
-                                                                                                                //data_buffer[0] = data_in_channel;//buffer[fx][fy][fz];
-                                                                                                                data_buffer[0] = buffer[fx][fy][fz];
-
-                                                                                                                fprintf(f, "%s", data_buffer);
-                                                                                                        }
-                                                                                                }
-                                                                                                c = 0;
-                                                                                        }
-                                                                                        b = 0;
-                                                                                }
 
                                                                         }
-                                                                        // if(nodes[x][y][z] == 'R') {
-                                                                        //         printf("Found reciever!\n" );
-                                                                        // }
                                                                 }
                                                                 else {
                                                                         printf("Error reading file. %d bytes\n", read);
@@ -414,30 +402,27 @@ int main(int argc, char **argv) {
                                                                 }
 
                                                         }
-                                                }
 
+                                                }
                                         }
                                 }
                         }
-
                         //  for (i =1; i <= num_samples; i++) {
                 }
         }
-
-        for(int i = 0; i<W; i++) {
+        printf("Hey\n" );
+        for(int ii = 0; ii<W; ii++) {
                 for(int j = 0; j<D; j++) {
                         for(int k = 0; k<H; k++) {
-                                printf("%f ",buffer[i][j][k]);
+                                printf("%f ",nodes[ii][j][k].p );
                         }
                         printf("\n");
                 }
         }
-
         printf("Closing file..\n");
         fclose(ptr);
         fclose(f);
         free(nodes);
-        free(buffer);
 
         // cleanup before quitting
         free(filename);
