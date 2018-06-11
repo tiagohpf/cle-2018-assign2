@@ -6,14 +6,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "wav.h"
 #define TRUE 1
 #define FALSE 0
 
 typedef struct {
         char c;
-        float p;
-        float pup,pdown,pleft,pright,pforward,pback;
+        double p;
+        double pup,pdown,pleft,pright,pforward,pback;
 }MESH;
 
 // WAVE header structure
@@ -258,131 +259,65 @@ int main(int argc, char **argv) {
                                                                                         printf("Erro\n" );
                                                                                         return -1;
                                                                                 }
-                                                                                if(x - 1 >=0)
-                                                                                        nodes[x][y][z].pup =nodes[x-1][y][z].pdown;
-
-                                                                                if(x+1<W)
-                                                                                        nodes[x][y][z].pdown =nodes[x+1][y][z].pup;
-
-                                                                                if(y - 1 >=0)
-                                                                                        nodes[x][y][z].pleft =nodes[x][y-1][z].pright;
-
-                                                                                if(y+1<D)
-                                                                                        nodes[x][y][z].pright =nodes[x][y+1][z].pleft;
-
-                                                                                if(z - 1 >=0)
-                                                                                        nodes[x][y][z].pback =nodes[x][y][z-1].pforward;
-
-                                                                                if(z+1<H)
-                                                                                        nodes[x][y][z].pforward =nodes[x][y][z+1].pback;
-
-                                                                                nodes[x][y][z].p = (nodes[x][y][z].pup + nodes[x][y][z].pdown + nodes[x][y][z].pforward + nodes[x][y][z].pback + nodes[x][y][z].pleft + nodes[x][y][z].pright) / 3;
-                                                                                nodes[x][y][z].p=data_in_channel;
-
-                                                                                if(x - 1 >=0)
-                                                                                        nodes[x][y][z].pup =nodes[x][y][z].p - nodes[x-1][y][z].pdown;
-
-                                                                                if(x+1<W)
-                                                                                        nodes[x][y][z].pdown =nodes[x][y][z].p - nodes[x+1][y][z].pup;
-
-                                                                                if(y - 1 >=0)
-                                                                                        nodes[x][y][z].pleft =nodes[x][y][z].p - nodes[x][y-1][z].pright;
-
-                                                                                if(y+1<D)
-                                                                                        nodes[x][y][z].pright =nodes[x][y][z].p - nodes[x][y+1][z].pleft;
-
-                                                                                if(z - 1 >=0)
-                                                                                        nodes[x][y][z].pback =nodes[x][y][z].p - nodes[x][y][z-1].pforward;
-
-                                                                                if(z+1<H)
-                                                                                        nodes[x][y][z].pforward = nodes[x][y][z].p - nodes[x][y][z+1].pback;
-
-
-
-
+                                                                                //scattering
                                                                                 for(int bx = 0; bx<W; bx++ ) {
                                                                                         for(int by = 0; by < D; by++) {
                                                                                                 for(int bz = 0; bz< H; bz++) {
+                                                                                                        if(nodes[bx][by][bz].c == 'S') {
 
+                                                                                                                nodes[bx][by][bz].p = data_in_channel;
+
+                                                                                                                nodes[bx][by][bz].pup = nodes[bx][by][bz].p-nodes[bx][by][bz].pup;
+
+                                                                                                                nodes[bx][by][bz].pdown = nodes[bx][by][bz].p-nodes[bx][by][bz].pdown;
+
+                                                                                                                nodes[bx][by][bz].pleft = nodes[bx][by][bz].p-nodes[bx][by][bz].pleft;
+
+                                                                                                                nodes[bx][by][bz].pright = nodes[bx][by][bz].p-nodes[bx][by][bz].pright;
+
+                                                                                                                nodes[bx][by][bz].pforward = nodes[bx][by][bz].p-nodes[bx][by][bz].pforward;
+
+                                                                                                                nodes[bx][by][bz].pback = nodes[bx][by][bz].p-nodes[bx][by][bz].pback;
+
+
+
+                                                                                                        }
 
                                                                                                         if(nodes[bx][by][bz].c == ' ') {
-                                                                                                                if(bx - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pup =nodes[bx-1][by][bz].pdown;
-
-                                                                                                                if(bx+1<W)
-                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx+1][by][bz].pup;
-
-                                                                                                                if(by - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by-1][bz].pright;
-
-                                                                                                                if(by+1<D)
-                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by+1][bz].pleft;
-
-                                                                                                                if(bz - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz-1].pforward;
-
-                                                                                                                if(bz+1<H)
-                                                                                                                        nodes[bx][by][bz].pforward =nodes[bx][by][bz+1].pback;
-
                                                                                                                 nodes[bx][by][bz].p = (nodes[bx][by][bz].pup + nodes[bx][by][bz].pdown + nodes[bx][by][bz].pforward + nodes[bx][by][bz].pback + nodes[bx][by][bz].pleft + nodes[bx][by][bz].pright) / 3;
 
-                                                                                                                if(bx - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pup =nodes[bx][by][bz].p - nodes[bx-1][by][bz].pdown;
+                                                                                                                nodes[bx][by][bz].pup = nodes[bx][by][bz].p-nodes[bx][by][bz].pup;
 
-                                                                                                                if(bx+1<W)
-                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx][by][bz].p - nodes[bx+1][by][bz].pup;
+                                                                                                                nodes[bx][by][bz].pdown = nodes[bx][by][bz].p-nodes[bx][by][bz].pdown;
 
-                                                                                                                if(by - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by][bz].p - nodes[bx][by-1][bz].pright;
+                                                                                                                nodes[bx][by][bz].pleft = nodes[bx][by][bz].p-nodes[bx][by][bz].pleft;
 
-                                                                                                                if(by+1<D)
-                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by][bz].p - nodes[bx][by+1][bz].pleft;
+                                                                                                                nodes[bx][by][bz].pright = nodes[bx][by][bz].p-nodes[bx][by][bz].pright;
 
-                                                                                                                if(bz - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz].p - nodes[bx][by][bz-1].pforward;
+                                                                                                                nodes[bx][by][bz].pforward = nodes[bx][by][bz].p-nodes[bx][by][bz].pforward;
 
-                                                                                                                if(bz+1<H)
-                                                                                                                        nodes[bx][by][bz].pforward = nodes[bx][by][bz].p - nodes[bx][by][bz+1].pback;
+                                                                                                                nodes[bx][by][bz].pback = nodes[bx][by][bz].p-nodes[bx][by][bz].pback;
+
+
+
 
                                                                                                         }
                                                                                                         if(nodes[bx][by][bz].c == 'R') {
-                                                                                                                if(bx - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pup =nodes[bx-1][by][bz].pdown;
-
-                                                                                                                if(bx+1<W)
-                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx+1][by][bz].pup;
-
-                                                                                                                if(by - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by-1][bz].pright;
-
-                                                                                                                if(by+1<D)
-                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by+1][bz].pleft;
-
-                                                                                                                if(bz - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz-1].pforward;
-
-                                                                                                                if(bz+1<H)
-                                                                                                                        nodes[bx][by][bz].pforward =nodes[bx][by][bz+1].pback;
-
                                                                                                                 nodes[bx][by][bz].p = (nodes[bx][by][bz].pup + nodes[bx][by][bz].pdown + nodes[bx][by][bz].pforward + nodes[bx][by][bz].pback + nodes[bx][by][bz].pleft + nodes[bx][by][bz].pright) / 3;
 
-                                                                                                                if(bx - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pup =nodes[bx][by][bz].p - nodes[bx-1][by][bz].pdown;
+                                                                                                                nodes[bx][by][bz].pup = nodes[bx][by][bz].p-nodes[bx][by][bz].pup;
 
-                                                                                                                if(bx+1<W)
-                                                                                                                        nodes[bx][by][bz].pdown =nodes[bx][by][bz].p - nodes[bx+1][by][bz].pup;
+                                                                                                                nodes[bx][by][bz].pdown = nodes[bx][by][bz].p-nodes[bx][by][bz].pdown;
 
-                                                                                                                if(by - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pleft =nodes[bx][by][bz].p - nodes[bx][by-1][bz].pright;
+                                                                                                                nodes[bx][by][bz].pleft = nodes[bx][by][bz].p-nodes[bx][by][bz].pleft;
 
-                                                                                                                if(by+1<D)
-                                                                                                                        nodes[bx][by][bz].pright =nodes[bx][by][bz].p - nodes[bx][by+1][bz].pleft;
+                                                                                                                nodes[bx][by][bz].pright = nodes[bx][by][bz].p-nodes[bx][by][bz].pright;
 
-                                                                                                                if(bz - 1 >=0)
-                                                                                                                        nodes[bx][by][bz].pback =nodes[bx][by][bz].p - nodes[bx][by][bz-1].pforward;
+                                                                                                                nodes[bx][by][bz].pforward = nodes[bx][by][bz].p-nodes[bx][by][bz].pforward;
 
-                                                                                                                if(bz+1<H)
-                                                                                                                        nodes[bx][by][bz].pforward = nodes[bx][by][bz].p - nodes[bx][by][bz+1].pback;
+                                                                                                                nodes[bx][by][bz].pback = nodes[bx][by][bz].p-nodes[bx][by][bz].pback;
+
+
 
                                                                                                                 data_buffer[0] = nodes[bx][by][bz].p;
                                                                                                                 //data_buffer[0] = data_in_channel;
@@ -390,10 +325,47 @@ int main(int argc, char **argv) {
 
                                                                                                         }
                                                                                                 }
+
                                                                                         }
                                                                                 }
+                                                                                //delay
+
+                                                                                for(int bx = 0; bx<W; bx++ ) {
+                                                                                        for(int by = 0; by < D; by++) {
+                                                                                                for(int bz = 0; bz< H; bz++) {
+                                                                                                        if(nodes[bx][by][bz].c == ' ' || nodes[bx][by][bz].c == 'S' || nodes[bx][by][bz].c == 'R') {
+                                                                                                                if(bx - 1>= 0) {
+                                                                                                                        nodes[bx-1][by][bz].pright = nodes[bx][by][bz].pleft;
+                                                                                                                }
 
 
+                                                                                                                if(bx + 1 < W) {
+                                                                                                                        nodes[bx+1][by][bz].pleft = nodes[bx][by][bz].pright;
+                                                                                                                }
+
+
+                                                                                                                if(by - 1>= 0) {
+                                                                                                                        nodes[bx][by-1][bz].pdown = nodes[bx][by][bz].pup;
+                                                                                                                }
+
+                                                                                                                if(by + 1 < D) {
+                                                                                                                        nodes[bx][by+1][bz].pup = nodes[bx][by][bz].pdown;
+                                                                                                                }
+
+
+                                                                                                                if(bz - 1>= 0) {
+                                                                                                                        nodes[bx][by][bz-1].pforward =   nodes[bx][by][bz].pback;
+                                                                                                                }
+
+                                                                                                                if(bz + 1 < H) {
+                                                                                                                        nodes[bx][by][bz+1].pback = nodes[bx][by][bz].pforward;
+                                                                                                                }
+
+
+                                                                                                        }
+                                                                                                }
+                                                                                        }
+                                                                                }
                                                                         }
                                                                 }
                                                                 else {
@@ -410,7 +382,6 @@ int main(int argc, char **argv) {
                         //  for (i =1; i <= num_samples; i++) {
                 }
         }
-        printf("Hey\n" );
         for(int ii = 0; ii<W; ii++) {
                 for(int j = 0; j<D; j++) {
                         for(int k = 0; k<H; k++) {
