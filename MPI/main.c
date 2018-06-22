@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
                                                                                      (buffer2[1] << 8);
 
                                                                 fread(buffer2, sizeof(buffer2), 1, input);
-                                                                strcat(wavheader,(char*)buffer2);
+                                                               strcat(wavheader,(char*)buffer2);
                                                                 header.bits_per_sample = buffer2[0] |
                                                                                          (buffer2[1] << 8);
 
@@ -332,6 +332,10 @@ int main(int argc, char **argv) {
 
                                                                                                         new_nodes[bx][by][bz].mback = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pback;
                                                                                                 }
+																								// Função que recebe um char
+																								// Consoante o char que recebe, retorna a flexibilidade dele
+																								
+
                                                                                         }
                                                                                 }
                                                                         }
@@ -341,36 +345,33 @@ int main(int argc, char **argv) {
                                                                         for(int bx = 0; bx<small_X; bx++ ) {
                                                                                 for(int by = 0; by < small_Y; by++) {
                                                                                         for(int bz = 0; bz< small_Z; bz++) {
-                                                                                                if(new_nodes[bx][by][bz].c == ' ' || new_nodes[bx][by][bz].c == 'S' || new_nodes[bx][by][bz].c == 'R') {
-                                                                                                        if(bx - 1>= 0) {
-                                                                                                                new_nodes[bx-1][by][bz].pright = new_nodes[bx][by][bz].mleft;
-                                                                                                        }
+																								
+																							if(bx - 1>= 0) {
+																									new_nodes[bx-1][by][bz].pright = new_nodes[bx][by][bz].mleft;
+																							}
 
 
-                                                                                                        if(bx + 1 < small_X) {
-                                                                                                                new_nodes[bx+1][by][bz].pleft = new_nodes[bx][by][bz].mright;
-                                                                                                        }
+																							if(bx + 1 < small_X) {
+																									new_nodes[bx+1][by][bz].pleft = new_nodes[bx][by][bz].mright;
+																							}
 
 
-                                                                                                        if(by - 1>= 0) {
-                                                                                                                new_nodes[bx][by-1][bz].pdown = new_nodes[bx][by][bz].mup;
-                                                                                                        }
+																							if(by - 1>= 0) {
+																									new_nodes[bx][by-1][bz].pdown = new_nodes[bx][by][bz].mup;
+																							}
 
-                                                                                                        if(by + 1 < small_Y) {
-                                                                                                                new_nodes[bx][by+1][bz].pup = new_nodes[bx][by][bz].mdown;
-                                                                                                        }
-
-
-                                                                                                        if(bz - 1>= 0) {
-                                                                                                                new_nodes[bx][by][bz-1].pforward =   new_nodes[bx][by][bz].mback;
-                                                                                                        }
-
-                                                                                                        if(bz + 1 < small_Z) {
-                                                                                                                new_nodes[bx][by][bz+1].pback = new_nodes[bx][by][bz].mforward;
-                                                                                                        }
+																							if(by + 1 < small_Y) {
+																									new_nodes[bx][by+1][bz].pup = new_nodes[bx][by][bz].mdown;
+																							}
 
 
-                                                                                                }
+																							if(bz - 1>= 0) {
+																									new_nodes[bx][by][bz-1].pforward =   new_nodes[bx][by][bz].mback;
+																							}
+
+																							if(bz + 1 < small_Z) {
+																									new_nodes[bx][by][bz+1].pback = new_nodes[bx][by][bz].mforward;
+																							}
                                                                                         }
                                                                                 }
                                                                         }
@@ -578,37 +579,33 @@ int main(int argc, char **argv) {
                                                         //delay
                                                         for(int bx = 0; bx<small_X; bx++ ) {
                                                                 for(int by = 0; by < small_Y; by++) {
-                                                                        for(int bz = 0; bz< small_Z; bz++) {
-                                                                                if(new_nodes[bx][by][bz].c == ' ' || new_nodes[bx][by][bz].c == 'S' || new_nodes[bx][by][bz].c == 'R') {
-                                                                                        if(bx - 1>= 0) {
-                                                                                                new_nodes[bx-1][by][bz].pright = new_nodes[bx][by][bz].mleft;
-                                                                                        }
+                                                                        for(int bz = 0; bz< small_Z; bz++) {                                                                             
+																			if(bx - 1>= 0) {
+																					new_nodes[bx-1][by][bz].pright = new_nodes[bx][by][bz].mleft;
+																			}
 
 
-                                                                                        if(bx + 1 < small_X) {
-                                                                                                new_nodes[bx+1][by][bz].pleft = new_nodes[bx][by][bz].mright;
-                                                                                        }
+																			if(bx + 1 < small_X) {
+																					new_nodes[bx+1][by][bz].pleft = new_nodes[bx][by][bz].mright;
+																			}
 
 
-                                                                                        if(by - 1>= 0) {
-                                                                                                new_nodes[bx][by-1][bz].pdown = new_nodes[bx][by][bz].mup;
-                                                                                        }
+																			if(by - 1>= 0) {
+																					new_nodes[bx][by-1][bz].pdown = new_nodes[bx][by][bz].mup;
+																			}
 
-                                                                                        if(by + 1 < small_Y) {
-                                                                                                new_nodes[bx][by+1][bz].pup = new_nodes[bx][by][bz].mdown;
-                                                                                        }
-
-
-                                                                                        if(bz - 1>= 0) {
-                                                                                                new_nodes[bx][by][bz-1].pforward =   new_nodes[bx][by][bz].mback;
-                                                                                        }
-
-                                                                                        if(bz + 1 < small_Z) {
-                                                                                                new_nodes[bx][by][bz+1].pback = new_nodes[bx][by][bz].mforward;
-                                                                                        }
+																			if(by + 1 < small_Y) {
+																					new_nodes[bx][by+1][bz].pup = new_nodes[bx][by][bz].mdown;
+																			}
 
 
-                                                                                }
+																			if(bz - 1>= 0) {
+																					new_nodes[bx][by][bz-1].pforward =   new_nodes[bx][by][bz].mback;
+																			}
+
+																			if(bz + 1 < small_Z) {
+																					new_nodes[bx][by][bz+1].pback = new_nodes[bx][by][bz].mforward;
+																			}                                                                               
                                                                         }
                                                                 }
                                                         }
@@ -627,7 +624,6 @@ int main(int argc, char **argv) {
                                 }
                         }
                 }
-
 
 
         }
