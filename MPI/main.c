@@ -60,6 +60,73 @@ MESH*** readFile(char *name,int *W,int *D,int *H,long *freq){
         return nodes;
 }
 
+double get_absortion_coefficient(char label) {
+	double coefficient;
+	switch(label) {
+      case 'A':
+        coefficient = 0;
+        break;
+      case 'B':
+        coefficient = 0.1;
+        break;
+      case 'C':
+        coefficient = 0.2;
+        break;
+      case 'D':
+        coefficient = 0.3;
+        break;
+      case 'E':
+        coefficient = 0.4;
+        break;
+      case 'F':
+        coefficient = 0.5;
+        break;
+      case 'G':
+        coefficient = 0.6;
+        break;
+      case 'H':
+        coefficient = 0.7;
+        break;
+      case 'I':
+        coefficient = 0.8;
+        break;
+      case 'J':
+        coefficient = 0.9;
+        break;
+      case '1':
+        coefficient = 0.91;
+        break;
+      case '2':
+        coefficient = 0.92;
+        break;
+      case '3':
+        coefficient = 0.93;
+        break;
+      case '4':
+        coefficient = 0.94;
+        break;
+      case '5':
+        coefficient = 0.95;
+        break;
+      case '6':
+        coefficient = 0.96;
+        break;
+      case '7':
+        coefficient = 0.97;
+        break;
+      case '8':
+        coefficient = 0.98;
+        break;
+      case '9':
+        coefficient = 0.99;
+        break;
+      case 'Z':
+        coefficient = 1;
+        break;
+	}
+	return coefficient;
+}
+
 
 int main(int argc, char **argv) {
 
@@ -317,23 +384,28 @@ int main(int argc, char **argv) {
                                                                                                         data_buffer[0] = new_nodes[bx][by][bz].p;
                                                                                                         fprintf(output, "%s", data_buffer);
                                                                                                 }
-                                                                                                else {
-                                                                                                        new_nodes[bx][by][bz].p = (new_nodes[bx][by][bz].pup + new_nodes[bx][by][bz].pdown + new_nodes[bx][by][bz].pforward + new_nodes[bx][by][bz].pback + new_nodes[bx][by][bz].pleft + new_nodes[bx][by][bz].pright) / 3;
+																								else if(new_nodes[bx][by][bz].c == ' ' || new_nodes[bx][by][bz].c == 'R'){
+																									new_nodes[bx][by][bz].p = (new_nodes[bx][by][bz].pup + new_nodes[bx][by][bz].pdown + new_nodes[bx][by][bz].pforward + new_nodes[bx][by][bz].pback + new_nodes[bx][by][bz].pleft + new_nodes[bx][by][bz].pright) / 3;
 
-                                                                                                        new_nodes[bx][by][bz].mup = new_nodes[bx][by][bz].p -new_nodes[bx][by][bz].pup;
+																									new_nodes[bx][by][bz].mup = new_nodes[bx][by][bz].p -new_nodes[bx][by][bz].pup;
 
-                                                                                                        new_nodes[bx][by][bz].mdown = new_nodes[bx][by][bz].p -new_nodes[bx][by][bz].pdown;
+																									new_nodes[bx][by][bz].mdown = new_nodes[bx][by][bz].p -new_nodes[bx][by][bz].pdown;
 
-                                                                                                        new_nodes[bx][by][bz].mleft = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pleft;
+																									new_nodes[bx][by][bz].mleft = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pleft;
 
-                                                                                                        new_nodes[bx][by][bz].mright =new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pright;
+																									new_nodes[bx][by][bz].mright =new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pright;
 
-                                                                                                        new_nodes[bx][by][bz].mforward = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pforward;
+																									new_nodes[bx][by][bz].mforward = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pforward;
 
-                                                                                                        new_nodes[bx][by][bz].mback = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pback;
-                                                                                                }
-																								// Função que recebe um char
-																								// Consoante o char que recebe, retorna a flexibilidade dele
+																									new_nodes[bx][by][bz].mback = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pback;
+																								}
+																								else {
+																									coef = get_absortion_coefficient(new_nodes[bx][by][bz].p);
+																									new_nodes[bx][by][bz].mup = coef * new_nodes[bx][by][bz].pup;
+																									new_nodes[bx][by][bz].mdown = coef * new_nodes[bx][by][bz].pdown;
+																									new_nodes[bx][by][bz].mleft = coef * new_nodes[bx][by][bz].pleft;
+																									new_nodes[bx][by][bz].mright = coef * new_nodes[bx][by][bz].pright;
+																								}
 																								
 
                                                                                         }
@@ -556,7 +628,7 @@ int main(int argc, char **argv) {
                                                                                         data_buffer[0] = new_nodes[bx][by][bz].p;
                                                                                         fprintf(output, "%s", data_buffer);
                                                                                 }
-                                                                                else {
+                                                                                else if(new_nodes[bx][by][bz].c == ' ' || new_nodes[bx][by][bz].c == 'R'){
                                                                                         new_nodes[bx][by][bz].p = (new_nodes[bx][by][bz].pup + new_nodes[bx][by][bz].pdown + new_nodes[bx][by][bz].pforward + new_nodes[bx][by][bz].pback + new_nodes[bx][by][bz].pleft + new_nodes[bx][by][bz].pright) / 3;
 
                                                                                         new_nodes[bx][by][bz].mup = new_nodes[bx][by][bz].p -new_nodes[bx][by][bz].pup;
@@ -571,10 +643,16 @@ int main(int argc, char **argv) {
 
                                                                                         new_nodes[bx][by][bz].mback = new_nodes[bx][by][bz].p - new_nodes[bx][by][bz].pback;
                                                                                 }
+																				else {
+																					coef = get_absortion_coefficient(new_nodes[bx][by][bz].p);
+																					new_nodes[bx][by][bz].mup = coef * new_nodes[bx][by][bz].pup;
+																					new_nodes[bx][by][bz].mdown = coef * new_nodes[bx][by][bz].pdown;
+																					new_nodes[bx][by][bz].mleft = coef * new_nodes[bx][by][bz].pleft;
+																					new_nodes[bx][by][bz].mright = coef * new_nodes[bx][by][bz].pright;
+																				}
                                                                         }
                                                                 }
                                                         }
-
 
                                                         //delay
                                                         for(int bx = 0; bx<small_X; bx++ ) {
