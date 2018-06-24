@@ -6,6 +6,7 @@
 #include "wav.h"
 #include <math.h>
 #include <stddef.h>
+#include <time.h>
 
 //Defines
 #define MASTER 0
@@ -149,7 +150,17 @@ int main(int argc, char **argv) {
         struct HEADER header;
         char wavheader[100];
         //Read from terminal later
-        int X=2,Y=2,Z=2;
+        //int X=2,Y=2,Z=2;
+        int X = atoi(argv[3]);
+        int Y = atoi(argv[4]);
+        int Z = atoi(argv[5]);
+        int rebv = atoi(argv[6]);
+
+        if(X <=0 || Y <=0 || Z <=0 || rebv < 0) {
+                printf("X Y and Z can't be negativ, reverbation value can't be lower than 0\n" );
+                return -1;
+        }
+
         int cordx,cordy,cordz;
         int small_X,small_Y,small_Z;
         int block_number;
@@ -180,6 +191,7 @@ int main(int argc, char **argv) {
         MPI_Type_commit(&MPI_MESH);
 
         MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+
         if(process_id == MASTER) {
                 nodes= readFile(argv[1],&W,&D,&H,&freq);
                 size = W*D*H;
@@ -197,15 +209,17 @@ int main(int argc, char **argv) {
                 MPI_Bcast (&X, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&Y, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&Z, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+                MPI_Bcast (&rebv, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_X, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_Y, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_Z, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 cordx=0,cordy=0,cordz=0;
                 int rcordx,rcordy,rcordz;
+                printf("Processing work\n" );
                 for (int i=0; i < block_number; i++) {
 
-                        printf("Id = %d ", i);
-                        printf("Coords %d %d %d Id %d\n",cordx,cordy,cordz,cordx*Y*Z+cordy*Z+cordz );
+                        //printf("Id = %d ", i);
+                        //printf("Coords %d %d %d Id %d\n",cordx,cordy,cordz,cordx*Y*Z+cordy*Z+cordz );
                         int block_size = BLOCK_SIZE(i,block_number,size);
 
                         nodes_per_process = (MESH*)malloc((block_size+1) * sizeof(MESH));
@@ -269,10 +283,9 @@ int main(int argc, char **argv) {
                                 cordz++;
                         }
                 }
-
                 //Do My work
                 //Each process does it's work, this bit is equal to the above on master since all processes do the same thing
-                printf("Id %d - %d %d %d\n",process_id,rcordx,rcordy,rcordz);
+
                 //Every process reads header
                 input = fopen(argv[2],"rb");
                 //Read wav file and store header in a string.
@@ -338,7 +351,9 @@ int main(int argc, char **argv) {
                 num_samples = (8 * header.data_size) / (header.channels * header.bits_per_sample);
                 size_of_each_sample = (header.channels * header.bits_per_sample) / 8;
                 char data_buffer[size_of_each_sample];
-
+                cordx = rcordx;
+                cordy = rcordy;
+                cordz = rcordz;
                 for(int x = 0; x<small_X; x++) {
                         for(int y = 0; y<small_Y; y++) {
                                 for(int z = 0; z<small_Z; z++) {
@@ -357,29 +372,30 @@ int main(int argc, char **argv) {
                 }
                 //Wait for other processes
                 MPI_Barrier(MPI_COMM_WORLD);
-                for (int i =1; i <= num_samples; i++) {
-                        printf("Sample %d\n",i );
-                        fread(data_buffer, sizeof(data_buffer), 1, input);
+                for (int i =1; i <= num_samples+rebv; i++) {
                         // dump the data read
                         int data_in_channel = 0;
-                        data_in_channel = data_buffer[0];
+                        if(i <=num_samples) {
+                                fread(data_buffer, sizeof(data_buffer), 1, input);
+                                data_in_channel = data_buffer[0];
+                        }
                         for(int x = 0; x<small_X; x++) {
                                 for(int y = 0; y<small_Y; y++) {
                                         for(int z = 0; z<small_Z; z++) {
                                                 if(new_nodes[x][y][z].c == 'S') {
                                                         //fprintf(output, "%s",data_buffer );
                                                         //Inject sound
-                                                        new_nodes[x][y][z].pup = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pup += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pdown =  (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pdown +=  (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pleft = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pleft += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pright = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pright += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pforward = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pforward += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pback = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pback += (data_in_channel / 2);
                                                 }
                                         }
                                 }
@@ -398,14 +414,8 @@ int main(int argc, char **argv) {
                                                         new_nodes[x][y][z].mright =new_nodes[x][y][z].p - new_nodes[x][y][z].pright;
                                                         new_nodes[x][y][z].mforward = new_nodes[x][y][z].p - new_nodes[x][y][z].pforward;
                                                         new_nodes[x][y][z].mback = new_nodes[x][y][z].p - new_nodes[x][y][z].pback;
-                                                        //Mudar para o R
-                                                        // if(new_nodes[x][y][z].c == 'S') {
-                                                        //         data_buffer[0] = new_nodes[x][y][z].p;
-                                                        //         fprintf(output, "%s",data_buffer);
-                                                        // }
-
                                                 }
-                                                if(new_nodes[x][y][z].c == 'R') {
+                                                else if(new_nodes[x][y][z].c == 'R') {
                                                         new_nodes[x][y][z].p = (new_nodes[x][y][z].pup + new_nodes[x][y][z].pdown + new_nodes[x][y][z].pforward + new_nodes[x][y][z].pback + new_nodes[x][y][z].pleft + new_nodes[x][y][z].pright) / 3;
                                                         new_nodes[x][y][z].mup = new_nodes[x][y][z].p -new_nodes[x][y][z].pup;
                                                         new_nodes[x][y][z].mdown = new_nodes[x][y][z].p -new_nodes[x][y][z].pdown;
@@ -413,9 +423,8 @@ int main(int argc, char **argv) {
                                                         new_nodes[x][y][z].mright =new_nodes[x][y][z].p - new_nodes[x][y][z].pright;
                                                         new_nodes[x][y][z].mforward = new_nodes[x][y][z].p - new_nodes[x][y][z].pforward;
                                                         new_nodes[x][y][z].mback = new_nodes[x][y][z].p - new_nodes[x][y][z].pback;
-                                                        // data_buffer[0] = new_nodes[x][y][z].p;
-                                                        // fprintf(output, "%s",data_buffer);
-
+                                                        data_buffer[0] = new_nodes[x][y][z].p;
+                                                        fprintf(output, "%s",data_buffer);
                                                 }
                                                 else{
                                                         coef = get_absortion_coefficient(new_nodes[x][y][z].c);
@@ -431,8 +440,7 @@ int main(int argc, char **argv) {
                         }
                         //wait for other processes
                         MPI_Barrier(MPI_COMM_WORLD);
-
-                        //delay 0
+                        //delay
                         for(int x = 0; x<small_X; x++) {
                                 for(int y = 0; y<small_Y; y++) {
                                         for(int z = 0; z<small_Z; z++) {
@@ -459,108 +467,139 @@ int main(int argc, char **argv) {
                                                 }
                                                 //wait for other processes
                                                 MPI_Barrier(MPI_COMM_WORLD);
-                                                //Sending MPI, neste tem de ser rcord's que são as coordenadas reais do master
-                                                //Sending to left
-                                                if(x - 1 < 0) {
-                                                        process_to_send =(rcordx-1) * Y*Z + rcordy*Z + rcordz;
+                                        }
+                                }
+                        }
+                        //wait for other processes
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        for(int x = 0; x<small_X; x++) {
+                                for(int y = 0; y<small_Y; y++) {
+                                        for(int z = 0; z<small_Z; z++) {
+                                                //Sending MPI
+
+                                                //Sending to right
+                                                if(x + 1 ==small_X) {
+                                                        process_to_send =(cordx+1) * Y*Z + cordy*Z + cordz;
                                                         if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mleft,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                MPI_Send(&new_nodes[x][y][z].mright,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
                                                 }
-                                                //Sending to right
-                                                /*if(x + 1 == small_X) {
-                                                        process_to_send =(rcordx+1) * Y*Z + rcordy*Z + rcordz;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mright,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }*/
-                                                /*if(y - 1< 0) {
-                                                        process_to_send =rcordx * Y*Z + (rcordy-1)*Z + rcordz;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mup,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }
 
-                                                   if(y + 1 == small_Y) {
-                                                        process_to_send =rcordx * Y*Z + (rcordy-1)*Z + rcordz;
+                                                //Sending to left
+                                                if(x-1 < 0 ) {
+                                                        process_to_send =(cordx-1) * Y*Z + cordy*Z + cordz;
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mleft,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
+                                                        }
+
+                                                }
+
+                                                //Sending down
+                                                if(y + 1 == small_Y) {
+                                                        process_to_send =cordx * Y*Z + (cordy+1)*Z + cordz;
                                                         if(process_to_send>= 0 && process_to_send <totalProcesses) {
                                                                 //MPI SEND
                                                                 MPI_Send(&new_nodes[x][y][z].mdown,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-
-                                                   }
-                                                   if(z - 1< 0) {
-                                                        process_to_send =rcordx * Y*Z + rcordy*Z + rcordz-1;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mback,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }
-
-                                                   if(z + 1 == small_Z) {
-                                                        process_to_send =rcordx * Y*Z + rcordy*Z + rcordz+1;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mforward,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }*/
-
-                                                //Recieving MPI
-                                                //Recieving from right
-                                                if(x + 1 == small_X) {
-                                                        process_to_recieve =(rcordx+1) * Y*Z + rcordy*Z + rcordz;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pright,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
                                                 }
-                                                //Recieving from left
-                                                /*if(x - 1 < 0) {
-                                                        process_to_recieve =(rcordx-1) * Y*Z + rcordy*Z + rcordz;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pleft,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                                                        }
-                                                   }*/
 
-                                                /*if(y + 1 == small_Y) {
-                                                        process_to_recieve =rcordx * Y*Z + (rcordy+1)*Z + rcordz;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pup,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                //Sending up
+                                                if(y - 1< 0) {
+                                                        process_to_send =cordx * Y*Z + (cordy-1)*Z + cordz;
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                //MPI SEND
+                                                                MPI_Send(&new_nodes[x][y][z].mup,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
-                                                   }
-                                                   if(y - 1< 0) {
-                                                        process_to_recieve =rcordx * Y*Z + (rcordy-1)*Z + rcordz;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pdown,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                }
+
+                                                //Sending forward
+                                                if(z + 1 ==small_Z) {
+                                                        process_to_send =cordx * Y*Z + cordy*Z + (cordz+1);
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mforward,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
-                                                   }
-                                                   if(z + 1 == small_Z) {
-                                                        process_to_recieve =rcordx * Y*Z + rcordy*Z + rcordz+1;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pforward,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                }
+                                                //Sending back
+                                                if(z - 1 < 0) {
+                                                        process_to_send =cordx * Y*Z + cordy*Z + (cordz-1);
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mback,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
-                                                   }
-                                                   if(z - 1< 0) {
-                                                        process_to_recieve =rcordx * Y*Z + rcordy*Z + rcordz-1;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pback,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                                                        }
-                                                   }*/
+                                                }
 
                                         }
                                 }
                         }
                         //wait for other processes
                         MPI_Barrier(MPI_COMM_WORLD);
+                        for(int x = 0; x<small_X; x++) {
+                                for(int y = 0; y<small_Y; y++) {
+                                        for(int z = 0; z<small_Z; z++) {
+                                                //Recieving MPI
 
+                                                //Recieving left
+                                                if(x-1 < 0 ) {
+                                                        process_to_recieve =(cordx-1) * Y*Z + cordy*Z + cordz;
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pleft,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+
+                                                //Recieving right
+                                                if(x+1 == small_X ) {
+                                                        process_to_recieve =(cordx+1) * Y*Z + cordy*Z + cordz;
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pright,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+                                                //Recieving up
+                                                if(y - 1 < 0) {
+                                                        process_to_recieve =cordx * Y*Z + (cordy-1)*Z + cordz;
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pup,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+                                                //Recieving down
+                                                if(y + 1 == small_Y) {
+                                                        process_to_recieve =cordx * Y*Z + (cordy+1)*Z + cordz;
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pdown,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+
+                                                }
+
+                                                //Recieving backward
+                                                if(z - 1 < 0) {
+                                                        process_to_recieve =cordx * Y*Z + cordy*Z + (cordz-1);
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pback,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+                                                //Recieving forward
+                                                if(z + 1 == small_Z) {
+                                                        process_to_recieve =cordx * Y*Z + cordy*Z + (cordz+1);
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pforward,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+
+                                        }
+                                }
+                        }
+                        //wait for other processes
+                        MPI_Barrier(MPI_COMM_WORLD);
                 }
         }
         else{
@@ -569,6 +608,7 @@ int main(int argc, char **argv) {
                 MPI_Bcast (&X, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&Y, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&Z, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+                MPI_Bcast (&rebv, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_X, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_Y, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
                 MPI_Bcast (&small_Z, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
@@ -579,7 +619,7 @@ int main(int argc, char **argv) {
                 MPI_Recv(&cordy,1,MPI_INT,MASTER,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
                 MPI_Recv(&cordz,1,MPI_INT,MASTER,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
                 new_nodes = (MESH***)malloc(small_X*sizeof(MESH**));
-                printf("Id %d - %d %d %d\n",process_id,cordx,cordy,cordz);
+                //printf("Id %d - %d %d %d\n",process_id,cordx,cordy,cordz);
                 for(int i = 0; i<small_X; i++) {
                         new_nodes[i] = (MESH**)malloc(small_Y*sizeof(MESH*));
                         for(int j = 0; j<small_Y; j++) {
@@ -678,28 +718,30 @@ int main(int argc, char **argv) {
                 }
                 //Wait for other processes
                 MPI_Barrier(MPI_COMM_WORLD);
-                for (int i =1; i <= num_samples; i++) {
-                        fread(data_buffer, sizeof(data_buffer), 1, input);
+                for (int i =1; i <= num_samples+rebv; i++) {
                         // dump the data read
                         int data_in_channel = 0;
-                        data_in_channel = data_buffer[0];
+                        if(i <=num_samples) {
+                                fread(data_buffer, sizeof(data_buffer), 1, input);
+                                data_in_channel = data_buffer[0];
+                        }
                         for(int x = 0; x<small_X; x++) {
                                 for(int y = 0; y<small_Y; y++) {
                                         for(int z = 0; z<small_Z; z++) {
                                                 if(new_nodes[x][y][z].c == 'S') {
                                                         //fprintf(output, "%s",data_buffer );
                                                         //Inject sound
-                                                        new_nodes[x][y][z].pup = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pup += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pdown =  (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pdown +=  (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pleft = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pleft += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pright = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pright += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pforward = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pforward += (data_in_channel / 2);
 
-                                                        new_nodes[x][y][z].pback = (data_in_channel / 2);
+                                                        new_nodes[x][y][z].pback += (data_in_channel / 2);
                                                 }
                                         }
                                 }
@@ -718,14 +760,8 @@ int main(int argc, char **argv) {
                                                         new_nodes[x][y][z].mright =new_nodes[x][y][z].p - new_nodes[x][y][z].pright;
                                                         new_nodes[x][y][z].mforward = new_nodes[x][y][z].p - new_nodes[x][y][z].pforward;
                                                         new_nodes[x][y][z].mback = new_nodes[x][y][z].p - new_nodes[x][y][z].pback;
-                                                        //Mudar para o R
-                                                        // if(new_nodes[x][y][z].c == 'S') {
-                                                        //         data_buffer[0] = new_nodes[x][y][z].p;
-                                                        //         fprintf(output, "%s",data_buffer);
-                                                        // }
-
                                                 }
-                                                if(new_nodes[x][y][z].c == 'R') {
+                                                else if(new_nodes[x][y][z].c == 'R') {
                                                         new_nodes[x][y][z].p = (new_nodes[x][y][z].pup + new_nodes[x][y][z].pdown + new_nodes[x][y][z].pforward + new_nodes[x][y][z].pback + new_nodes[x][y][z].pleft + new_nodes[x][y][z].pright) / 3;
                                                         new_nodes[x][y][z].mup = new_nodes[x][y][z].p -new_nodes[x][y][z].pup;
                                                         new_nodes[x][y][z].mdown = new_nodes[x][y][z].p -new_nodes[x][y][z].pdown;
@@ -733,8 +769,8 @@ int main(int argc, char **argv) {
                                                         new_nodes[x][y][z].mright =new_nodes[x][y][z].p - new_nodes[x][y][z].pright;
                                                         new_nodes[x][y][z].mforward = new_nodes[x][y][z].p - new_nodes[x][y][z].pforward;
                                                         new_nodes[x][y][z].mback = new_nodes[x][y][z].p - new_nodes[x][y][z].pback;
-                                                        // data_buffer[0] = new_nodes[x][y][z].p;
-                                                        // fprintf(output, "%s",data_buffer);
+                                                        data_buffer[0] = new_nodes[x][y][z].p;
+                                                        fprintf(output, "%s",data_buffer);
                                                 }
                                                 else{
                                                         coef = get_absortion_coefficient(new_nodes[x][y][z].c);
@@ -777,101 +813,133 @@ int main(int argc, char **argv) {
                                                 }
                                                 //wait for other processes
                                                 MPI_Barrier(MPI_COMM_WORLD);
+                                        }
+                                }
+                        }
+                        //wait for other processes
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        for(int x = 0; x<small_X; x++) {
+                                for(int y = 0; y<small_Y; y++) {
+                                        for(int z = 0; z<small_Z; z++) {
                                                 //Sending MPI
-                                                //Sending to left
-                                                if(x - 1 < 0) {
-                                                        process_to_send =(cordx-1) * Y*Z + cordy*Z + cordz;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mleft,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                }
+
                                                 //Sending to right
-                                                /*if(x + 1 == small_X) {
+                                                if(x + 1 ==small_X) {
                                                         process_to_send =(cordx+1) * Y*Z + cordy*Z + cordz;
                                                         if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
                                                                 MPI_Send(&new_nodes[x][y][z].mright,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
-                                                   }*/
-                                                /*if(y - 1< 0) {
+                                                }
+
+                                                //Sending to left
+                                                if(x-1 < 0 ) {
+                                                        process_to_send =(cordx-1) * Y*Z + cordy*Z + cordz;
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mleft,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
+                                                        }
+
+                                                }
+
+                                                //Sending down
+                                                if(y + 1 == small_Y) {
+                                                        process_to_send =cordx * Y*Z + (cordy+1)*Z + cordz;
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                //MPI SEND
+                                                                MPI_Send(&new_nodes[x][y][z].mdown,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
+                                                        }
+                                                }
+
+                                                //Sending up
+                                                if(y - 1< 0) {
                                                         process_to_send =cordx * Y*Z + (cordy-1)*Z + cordz;
                                                         if(process_to_send>= 0 && process_to_send <totalProcesses) {
                                                                 //MPI SEND
                                                                 MPI_Send(&new_nodes[x][y][z].mup,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }
-
-                                                   if(y + 1 == small_Y) {
-                                                        process_to_send =cordx * Y*Z + (cordy-1)*Z + cordz;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mdown,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-
-                                                   }
-                                                   if(z - 1< 0) {
-                                                        process_to_send =cordx * Y*Z + cordy*Z + cordz-1;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mback,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }
-
-                                                   if(z + 1 == small_Z) {
-                                                        process_to_send =cordx * Y*Z + cordy*Z + cordz+1;
-                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
-                                                                //MPI SEND
-                                                                MPI_Send(&new_nodes[x][y][z].mforward,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
-                                                        }
-                                                   }*/
-
-                                                //Recieving MPI
-                                                //Recieving from right
-                                                if(x + 1 == small_X) {
-                                                        process_to_recieve =(cordx+1) * Y*Z + cordy*Z + cordz;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pright,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
                                                         }
                                                 }
-                                                //Recieving from left
-                                                /*if(x - 1 < 0) {
+
+                                                //Sending forward
+                                                if(z + 1 ==small_Z) {
+                                                        process_to_send =cordx * Y*Z + cordy*Z + (cordz+1);
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mforward,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
+                                                        }
+                                                }
+                                                //Sending back
+                                                if(z - 1 < 0) {
+                                                        process_to_send =cordx * Y*Z + cordy*Z + (cordz-1);
+                                                        if(process_to_send>= 0 && process_to_send <totalProcesses) {
+                                                                MPI_Send(&new_nodes[x][y][z].mback,1,MPI_DOUBLE,process_to_send,0,MPI_COMM_WORLD);
+                                                                //printf("%d Sending to %d\n",process_id,process_to_send );
+                                                        }
+                                                }
+
+                                        }
+                                }
+                        }
+                        //wait for other processes
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        for(int x = 0; x<small_X; x++) {
+                                for(int y = 0; y<small_Y; y++) {
+                                        for(int z = 0; z<small_Z; z++) {
+                                                //Recieving MPI
+
+                                                //Recieving left
+                                                if(x-1 < 0 ) {
                                                         process_to_recieve =(cordx-1) * Y*Z + cordy*Z + cordz;
                                                         if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
                                                                 MPI_Recv(&new_nodes[x][y][z].pleft,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
                                                         }
-                                                   }*/
+                                                }
 
-                                                /*if(y + 1 == small_Y) {
-                                                        process_to_recieve =cordx * Y*Z + (cordy+1)*Z + cordz;
+                                                //Recieving right
+                                                if(x+1 == small_X ) {
+                                                        process_to_recieve =(cordx+1) * Y*Z + cordy*Z + cordz;
                                                         if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pup,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                MPI_Recv(&new_nodes[x][y][z].pright,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
                                                         }
-                                                   }
-                                                   if(y - 1< 0) {
+                                                }
+                                                //Recieving up
+                                                if(y - 1 < 0) {
                                                         process_to_recieve =cordx * Y*Z + (cordy-1)*Z + cordz;
                                                         if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                                //MPI Recieve
+                                                                MPI_Recv(&new_nodes[x][y][z].pup,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
+                                                //Recieving down
+                                                if(y + 1 == small_Y) {
+                                                        process_to_recieve =cordx * Y*Z + (cordy+1)*Z + cordz;
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
                                                                 MPI_Recv(&new_nodes[x][y][z].pdown,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
                                                         }
-                                                   }
-                                                   if(z + 1 == small_Z) {
-                                                        process_to_recieve =cordx * Y*Z + cordy*Z + cordz+1;
+
+                                                }
+
+                                                //Recieving backward
+                                                if(z - 1 < 0) {
+                                                        process_to_recieve =cordx * Y*Z + cordy*Z + (cordz-1);
                                                         if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                              //MPI Recieve
-                                                                MPI_Recv(&new_nodes[x][y][z].pforward,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                                                        }
-                                                   }
-                                                   if(z - 1< 0) {
-                                                        process_to_recieve =cordx * Y*Z + cordy*Z + cordz-1;
-                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
-                                                              //MPI Recieve
                                                                 MPI_Recv(&new_nodes[x][y][z].pback,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
                                                         }
-                                                   }*/
+                                                }
+                                                //Recieving forward
+                                                if(z + 1 == small_Z) {
+                                                        process_to_recieve =cordx * Y*Z + cordy*Z + (cordz+1);
+                                                        if(process_to_recieve>= 0 && process_to_recieve <totalProcesses) {
+                                                                MPI_Recv(&new_nodes[x][y][z].pforward,1,MPI_DOUBLE,process_to_recieve,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                                //printf("%d Recieving from %d\n",process_id,process_to_recieve );
+                                                        }
+                                                }
 
                                         }
                                 }
