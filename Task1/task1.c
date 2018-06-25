@@ -17,7 +17,6 @@ char coefficient_option();
 void add_new_source_receiver(char ***nodes, int W, int D, int H, float d, char *element);
 void add_new_sphere(char ***nodes, int W, int D, int H, float d);
 void add_new_cuboid(char ***nodes, int W, int D, int H, float d);
-int nearest_position(char ***nodes, int measure, float coordinate, float d);
 void save_data(char ***nodes, int W, int D, int H, long fu);
 
 int main() {
@@ -32,12 +31,15 @@ int main() {
   H = insert_measure("Height");
   fu = insert_frequency();
   float node_spacing = (c * sqrt(3)) / fu;
+  W = W / node_spacing;
+  D = D / node_spacing;
+  H = H / node_spacing;
   int Wl = (int) ceil(node_spacing * W);
   int Dl = (int) ceil(node_spacing * D);
   int Hl = (int) ceil(node_spacing * H);
   printf("Adjustment of room\n");
   printf("W = %d m, D = %d m, H = %d m\n", W, D, H);
-  printf("W' = %d m, D' = %d m, H' = %d m with d = %f m\n", Wl, Dl, Hl, node_spacing);
+  printf("W' = %d, D' = %d, H' = %d with d = %f\n", Wl, Dl, Hl, node_spacing);
 
   nodes = (char***) malloc(W * sizeof(char**));
   initialize_array(nodes, W, D, H);
@@ -304,13 +306,9 @@ void add_new_source_receiver(char ***nodes, int W, int D, int H, float d, char *
   float x, y, z;
   insert_coordinates(&x, &y, &z);
   // Adjust Values
-  x = x * d;
-  y = y * d;
-  z = z * d;
-
-  int i = nearest_position(nodes, W, x, d);
-  int j = nearest_position(nodes, D, y, d);
-  int k = nearest_position(nodes, H, z, d);
+  int i  = (int) x / d;
+  int j = (int) y / d;
+  int k = (int) z / d;
   if (element == "Source") {
     nodes[i][j][k] = 'S';
     printf("New Source Added in (%d, %d, %d)\n", i, j, k);
@@ -328,15 +326,9 @@ void add_new_sphere(char ***nodes, int W, int D, int H, float d) {
   coefficient = insert_absortion_coefficient();
 
   // Adjust Values
-  x = x * d;
-  y = y * d;
-  z = z * d;
-  r = r * d;
-
-  // Convert indexes to nodes
-  float i = nearest_position(nodes, W, x, d) * d + (d / 2);
-  float j = nearest_position(nodes, D, y, d) * d + (d / 2);
-  float k = nearest_position(nodes, H, z, d) * d + (d / 2);
+  float i = (int) x / d;
+  float j = (int) y / d;
+  float k = (int) z / d;
   for (int a = 0; a < W; a++) {
     for (int b = 0; b < D; b++) {
       for (int c = 0; c < H; c++) {
@@ -360,20 +352,13 @@ void add_new_cuboid(char ***nodes, int W, int D, int H, float d) {
   coefficient = insert_absortion_coefficient();
 
   // Adjust Values
-  x_min = x_min * d;
-  x_max = x_max * d;
-  y_min = y_min * d;
-  y_max = y_max * d;
-  z_min = z_min * d;
-  z_max = z_max * d;
+  float i_min = (int) x_min / d;
+  float i_max = (int) x_max / d;
+  float j_min = (int) y_min / d;
+  float j_max = (int) y_max / d;
+  float k_min = (int) z_min / d;
+  float k_max = (int) z_max / d;
 
-  // Convert indexes to nodes
-  float i_min = nearest_position(nodes, W, x_min, d) * d + (d / 2);
-  float i_max = nearest_position(nodes, W, x_max, d) * d + (d / 2);
-  float j_min = nearest_position(nodes, W, y_min, d) * d + (d / 2);
-  float j_max = nearest_position(nodes, W, y_max, d) * d + (d / 2);
-  float k_min = nearest_position(nodes, W, z_min, d) * d + (d / 2);
-  float k_max = nearest_position(nodes, W, z_max, d) * d + (d / 2);
   for (int a = 0; a < W; a++) {
     for (int b = 0; b < D; b++) {
       for (int c = 0; c < H; c++) {
@@ -390,16 +375,6 @@ void add_new_cuboid(char ***nodes, int W, int D, int H, float d) {
   printf("New Cuboid Added\n");
 }
 
-int nearest_position(char ***nodes, int measure, float coordinate, float d) {
-  int position = 0;
-  for (int i = 1; i < measure; i++) {
-    if (fabs(coordinate - (i * d + (d / 2))) < fabs(coordinate - (position * d + (d / 2)))) {
-      position = i;
-    }
-  }
-  return position;
-}
-
 void insert_max_min_coordinates(float *min, float *max, char letter) {
   do {
     printf("%c min: ", letter);
@@ -414,7 +389,16 @@ void insert_max_min_coordinates(float *min, float *max, char letter) {
 
 void save_data(char ***nodes, int W, int D, int H, long fu) {
   FILE *file = fopen("room-config.dwm", "w");
-  fprintf(file, "%d   %d   %d   %ld\n", W, D, H, fu);
+  int number = 0;
+  for (int i = 0; i < W; i++) {
+    for (int j = 0; j < D; j++) {
+      for (int k = 0; k < H; k++) {
+        number++;
+      }
+    }
+  }
+  printf("%d\n", number);
+  fprintf(file, "%d %d %d %ld\n", W, D, H, fu);
   for (int i = 0; i < W; i++) {
     for (int j = 0; j < D; j++) {
       for (int k = 0; k < H; k++) {
