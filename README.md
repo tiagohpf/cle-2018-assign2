@@ -13,7 +13,7 @@ After the roo'ms configuration file has been created and _main.c_ has been compi
 mpirun -np N --oversubscribe filename fileconfig audiofile X Y Z rev
 ```
 Parameters:
-- **N** - número de processos;
+- **N** - number of processes;
 - **filename** - name of executable file;
 - **fileconfig** - name of file with room's configuration data;
 - **audiofile** - name of input file;
