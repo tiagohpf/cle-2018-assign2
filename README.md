@@ -1,4 +1,4 @@
-# cle-2018-assign2
+# Acoustic Modelation
 Development of a simulator of acoustic model. To have the final result, you just need to use two directories: Task1 and MPI.
 
 ## Content
